@@ -1,0 +1,60 @@
+# Ignore Python cache and compiled files.
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore Python virtual environments.
+.venv/
+venv/
+env/
+ENV/
+
+# Ignore environment and secret files.
+.env
+.env.*
+!.env.example
+
+# Ignore IDE and editor files.
+.vscode/
+.idea/
+
+# Ignore operating-system files.
+.DS_Store
+Thumbs.db
+
+# Ignore logs and temporary files.
+*.log
+*.tmp
+*.temp
+
+# Ignore local test and debug files.
+pytest_cache/
+.coverage
+htmlcov/
+
+# Ignore Docker local overrides.
+docker-compose.override.yml
+
+# Ignore generated ML/cache artifacts.
+models/*.tmp
+models/*.log
+
+# Ignore uploaded runtime documents.
+uploads/
+temp/
+tmp/
+
+# Ignore local frontend development artifacts.
+frontend/node_modules/
+
+# Ignore Python packaging artifacts.
+build/
+dist/
+*.egg-info/
+
+# Ignore Jupyter/Colab temporary files.
+.ipynb_checkpoints/
+
+# Ignore generated local output files.
+output/
+outputs/

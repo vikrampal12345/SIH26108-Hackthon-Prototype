@@ -1,0 +1,375 @@
+<!-- Build the Syncronal BIS recommendation page with text and document input. -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Syncronal | BIS Standard Recommender</title>
+
+    <link
+        rel="stylesheet"
+        href="./style.css"
+    >
+</head>
+
+<body>
+
+    <nav class="navbar">
+
+        <div class="navbar-inner">
+
+            <a
+                href="#"
+                class="brand"
+            >
+                <div class="brand-logo-wrapper">
+                    <img
+                        src="assets/logo.png"
+                        alt="Syncronal"
+                        class="brand-logo"
+                    >
+                </div>
+
+                <div class="brand-text">
+                    <strong>Syncronal</strong>
+                    <span>BIS Standard Recommender</span>
+                </div>
+            </a>
+
+            <div class="nav-badge">
+                AI-Powered BIS Recommendation
+            </div>
+
+        </div>
+
+    </nav>
+
+
+    <main class="page-container">
+
+        <section class="hero">
+
+            <div class="hero-badge">
+                AI-POWERED PROCUREMENT ASSISTANT
+            </div>
+
+            <h1>
+                Find the right
+                <span>BIS Standards</span>
+                faster.
+            </h1>
+
+            <p>
+                Describe your procurement requirement or upload your
+                requirement document. Syncronal analyzes it and recommends
+                relevant Indian Standards.
+            </p>
+
+        </section>
+
+
+        <section class="search-card">
+
+            <div class="input-tabs">
+
+                <button
+                    id="textTab"
+                    type="button"
+                    class="input-tab active"
+                >
+                    Enter Requirement
+                </button>
+
+                <button
+                    id="uploadTab"
+                    type="button"
+                    class="input-tab"
+                >
+                    Upload Document
+                </button>
+
+            </div>
+
+
+            <!-- Manual requirement input. -->
+            <div
+                id="textInputPanel"
+                class="input-panel"
+            >
+
+                <label
+                    for="queryInput"
+                    class="input-label"
+                >
+                    Procurement Requirement
+                </label>
+
+                <textarea
+                    id="queryInput"
+                    class="query-input"
+                    maxlength="2000"
+                    placeholder="Example: We need ordinary Portland cement for building construction."
+                ></textarea>
+
+
+                <div class="examples">
+
+                    <span class="examples-label">
+                        Try an example:
+                    </span>
+
+                    <button
+                        type="button"
+                        class="example-button"
+                        data-query="We need ordinary Portland cement for building construction."
+                    >
+                        Portland cement
+                    </button>
+
+                    <button
+                        type="button"
+                        class="example-button"
+                        data-query="We need steel reinforcement bars for a building construction project."
+                    >
+                        Steel reinforcement
+                    </button>
+
+                    <button
+                        type="button"
+                        class="example-button"
+                        data-query="We need electrical cables for an industrial installation."
+                    >
+                        Electrical cables
+                    </button>
+
+                </div>
+
+
+                <button
+                    id="searchButton"
+                    type="button"
+                    class="primary-button"
+                >
+                    <span>Find BIS Standards</span>
+                    <span class="button-arrow">→</span>
+                </button>
+
+            </div>
+
+
+            <!-- Document upload input. -->
+            <div
+                id="uploadPanel"
+                class="input-panel hidden"
+            >
+
+                <label class="input-label">
+                    Upload Requirement Document
+                </label>
+
+
+                <label
+                    for="documentInput"
+                    id="dropZone"
+                    class="drop-zone"
+                >
+
+                    <div class="upload-icon">
+                        ↑
+                    </div>
+
+                    <h3>
+                        Upload your requirement document
+                    </h3>
+
+                    <p>
+                        Drag & drop your file here or click to browse
+                    </p>
+
+                    <span class="upload-supported">
+                        Supported: PDF, DOCX, TXT • Maximum 10 MB
+                    </span>
+
+                    <input
+                        id="documentInput"
+                        type="file"
+                        accept=".pdf,.docx,.txt"
+                        hidden
+                    >
+
+                </label>
+
+
+                <div
+                    id="selectedFile"
+                    class="selected-file hidden"
+                >
+
+                    <div class="selected-file-info">
+
+                        <div class="file-icon">
+                            FILE
+                        </div>
+
+                        <div>
+                            <strong id="selectedFileName">
+                                Document
+                            </strong>
+
+                            <span>
+                                Ready for analysis
+                            </span>
+                        </div>
+
+                    </div>
+
+                    <button
+                        id="removeFileButton"
+                        type="button"
+                        class="remove-file-button"
+                    >
+                        Remove
+                    </button>
+
+                </div>
+
+
+                <button
+                    id="uploadButton"
+                    type="button"
+                    class="primary-button"
+                    disabled
+                >
+                    <span>Analyze Document</span>
+                    <span class="button-arrow">→</span>
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- Loading status. -->
+        <section
+            id="statusSection"
+            class="status-section hidden"
+        >
+
+            <div class="loading-spinner"></div>
+
+            <div>
+                <strong id="statusTitle">
+                    Analyzing requirement...
+                </strong>
+
+                <p id="statusMessage">
+                    Finding relevant BIS standards.
+                </p>
+            </div>
+
+        </section>
+
+
+        <!-- Error message. -->
+        <section
+            id="errorSection"
+            class="error-section hidden"
+        >
+
+            <div class="error-icon">
+                !
+            </div>
+
+            <div>
+                <strong>
+                    Something went wrong
+                </strong>
+
+                <p id="errorMessage"></p>
+            </div>
+
+        </section>
+
+
+        <!-- Recommendation results. -->
+        <section
+            id="resultsSection"
+            class="results-section hidden"
+        >
+
+            <div class="results-header">
+
+                <div>
+
+                    <span class="results-label">
+                        AI RESULTS
+                    </span>
+
+                    <h2>
+                        Recommended BIS Standards
+                    </h2>
+
+                    <p id="resultSource"></p>
+
+                </div>
+
+
+                <div class="stats-container">
+
+                    <div class="stat-box">
+
+                        <strong id="candidateCount">
+                            0
+                        </strong>
+
+                        <span>
+                            Candidates
+                        </span>
+
+                    </div>
+
+                    <div class="stat-box">
+
+                        <strong id="recommendationCount">
+                            0
+                        </strong>
+
+                        <span>
+                            Recommendations
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div
+                id="resultsContainer"
+                class="results-container"
+            ></div>
+
+        </section>
+
+    </main>
+
+
+    <footer class="footer">
+        <p>
+            Syncronal • AI-powered BIS Standard Recommendation
+        </p>
+    </footer>
+
+
+    <script src="./script.js"></script>
+
+</body>
+</html>

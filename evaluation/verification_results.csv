@@ -1,0 +1,21 @@
+query_number,query,rank,is_number,title,hybrid_score,semantic_score,classification_score,status,certification,type_of_standard,department,group,sub_group,sub_sub_group,superseding_is,related_count,error
+1,We need ordinary Portland cement for building construction.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U59'), dtype('<U59')) -> None"
+2,We need steel reinforcement bars for a residential building.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U60'), dtype('<U60')) -> None"
+3,We need concrete blocks for building construction.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U50'), dtype('<U50')) -> None"
+4,We need electrical cables for an industrial installation.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U57'), dtype('<U57')) -> None"
+5,We need PVC water pipes for a municipal water supply project.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U61'), dtype('<U61')) -> None"
+6,We need safety helmets for construction workers.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U48'), dtype('<U48')) -> None"
+7,We need structural steel sections for a building project.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U57'), dtype('<U57')) -> None"
+8,We need ceramic tiles for flooring in a commercial building.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U60'), dtype('<U60')) -> None"
+9,We need drinking water quality standards for a water supply project.,,,,,,,,,,,,,,,,'semantic_score_normalized'
+10,We need welding electrodes for fabrication work.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U48'), dtype('<U48')) -> None"
+11,We need fire extinguishers for an industrial facility.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U54'), dtype('<U54')) -> None"
+12,We need stainless steel sheets for equipment manufacturing.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U59'), dtype('<U59')) -> None"
+13,We need packaged drinking water for commercial supply.,,,,,,,,,,,,,,,,'semantic_score_normalized'
+14,We need road construction materials and bitumen.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U48'), dtype('<U48')) -> None"
+15,We need cement concrete pavement materials for road construction.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U65'), dtype('<U65')) -> None"
+16,We need industrial protective gloves for workers.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U49'), dtype('<U49')) -> None"
+17,We need LED lighting equipment for a commercial building.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U57'), dtype('<U57')) -> None"
+18,We need pressure vessels for an industrial plant.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U49'), dtype('<U49')) -> None"
+19,We need agricultural irrigation pipes.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U38'), dtype('<U38')) -> None"
+20,We need testing requirements for concrete used in construction.,,,,,,,,,,,,,,,,"ufunc 'multiply' did not contain a loop with signature matching types (dtype('<U63'), dtype('<U63')) -> None"

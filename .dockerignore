@@ -1,0 +1,39 @@
+# Exclude Git metadata from the Docker build context.
+.git/
+.gitignore
+.github/
+
+# Exclude Python cache files.
+__pycache__/
+*.py[cod]
+
+# Exclude virtual environments.
+.venv/
+venv/
+env/
+
+# Exclude IDE files.
+.vscode/
+.idea/
+
+# Exclude operating-system files.
+.DS_Store
+Thumbs.db
+
+# Exclude logs and temporary files.
+*.log
+*.tmp
+*.temp
+
+# Exclude test/cache directories.
+pytest_cache/
+.coverage
+htmlcov/
+
+# Exclude runtime uploads and temporary documents.
+uploads/
+temp/
+tmp/
+
+# Exclude local Docker override files.
+docker-compose.override.yml

@@ -1,0 +1,32 @@
+# Run the Syncronal frontend and FastAPI backend together with Docker Compose.
+
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: syncronal-backend
+
+    ports:
+      - "8000:8000"
+
+    restart: unless-stopped
+
+
+  frontend:
+    image: nginx:alpine
+
+    container_name: syncronal-frontend
+
+    ports:
+      - "5500:80"
+
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped
