@@ -11,6 +11,9 @@ from docx import Document
 from backend.schemas import RecommendationRequest
 from ml.pipeline import BISRecommendationPipeline
 from ml.intent_detector import detect_input_intent
+# Allow the deployed Vercel frontend and local development frontend to call FastAPI.
+from fastapi.middleware.cors import CORSMiddleware
+
 
 
 # Create the FastAPI application.
@@ -22,9 +25,12 @@ app = FastAPI(
 
 
 # Allow the local frontend to call the backend.
+# Allow the deployed Vercel frontend and local development frontend to call FastAPI.
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://sih-26108-hackthon-prototype.vercel.app",
         "http://127.0.0.1:5500",
         "http://localhost:5500",
     ],
@@ -32,7 +38,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # Load the recommendation pipeline once when the server starts.
 pipeline = BISRecommendationPipeline()
