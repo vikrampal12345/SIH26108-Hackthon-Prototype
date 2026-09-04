@@ -1,18 +1,22 @@
-# FastAPI backend for the Syncronal BIS Standard Recommendation prototype.
+# FastAPI backend for BIS text and document recommendation with strict input validation.
 
 from pathlib import Path
-from typing import Any, Dict
+import tempfile
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pypdf import PdfReader
+from docx import Document
 
 from backend.schemas import RecommendationRequest
 from ml.pipeline import BISRecommendationPipeline
+from ml.intent_detector import detect_input_intent
 
 
 # Create the FastAPI application.
 app = FastAPI(
-    title="Syncronal BIS Standard Recommendation API",
+    title="BIS Standard Recommendation API",
+    description="AI-powered BIS Indian Standard recommendation system",
     version="1.0.0",
 )
 
@@ -30,165 +34,286 @@ app.add_middleware(
 )
 
 
-# Create the recommendation engine once when the server starts.
+# Load the recommendation pipeline once when the server starts.
 pipeline = BISRecommendationPipeline()
+
+
+# Maximum uploaded file size: 10 MB.
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
+
+# Supported document formats.
+ALLOWED_EXTENSIONS = {
+    ".pdf",
+    ".docx",
+    ".txt",
+}
+
+
+def validate_text_for_recommendation(
+    text: str,
+    input_type: str = "text",
+) -> None:
+    # Validate content before MiniLM, FAISS, and hybrid ranking are executed.
+
+    if not text or not text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="No readable text was found in the input.",
+        )
+
+    is_valid, message = detect_input_intent(
+        text,
+        input_type,
+    )
+
+    if not is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=message,
+        )
+
+
+def extract_text_from_pdf(file_path: str) -> str:
+    # Extract selectable text from a PDF file.
+
+    try:
+        reader = PdfReader(file_path)
+
+        pages = []
+
+        for page in reader.pages:
+            page_text = page.extract_text()
+
+            if page_text:
+                pages.append(page_text)
+
+        return "\n".join(pages).strip()
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to read PDF file: {exc}",
+        )
+
+
+def extract_text_from_docx(file_path: str) -> str:
+    # Extract paragraph text from a DOCX file.
+
+    try:
+        document = Document(file_path)
+
+        paragraphs = []
+
+        for paragraph in document.paragraphs:
+            text = paragraph.text.strip()
+
+            if text:
+                paragraphs.append(text)
+
+        return "\n".join(paragraphs).strip()
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to read DOCX file: {exc}",
+        )
+
+
+def extract_text_from_txt(file_path: str) -> str:
+    # Read plain text from a TXT file.
+
+    try:
+        return Path(file_path).read_text(
+            encoding="utf-8",
+            errors="ignore",
+        ).strip()
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unable to read TXT file: {exc}",
+        )
+
+
+def extract_text_from_file(
+    file_path: str,
+    filename: str,
+) -> str:
+    # Select the correct extractor based on the uploaded extension.
+
+    extension = Path(filename).suffix.lower()
+
+    if extension == ".pdf":
+        return extract_text_from_pdf(file_path)
+
+    if extension == ".docx":
+        return extract_text_from_docx(file_path)
+
+    if extension == ".txt":
+        return extract_text_from_txt(file_path)
+
+    raise HTTPException(
+        status_code=400,
+        detail="Unsupported file type. Please upload PDF, DOCX, or TXT.",
+    )
 
 
 @app.get("/")
 def root():
-    # Return a simple API status message.
+    # Return basic information about the backend.
     return {
-        "message": "Syncronal BIS Standard Recommendation API",
-        "status": "running",
+        "message": "BIS Standard Recommendation API is running.",
+        "docs": "/docs",
+        "health": "/health",
     }
 
 
 @app.get("/health")
 def health():
-    # Provide a simple health-check endpoint.
+    # Provide a simple backend health check.
     return {
-        "status": "healthy",
+        "status": "ok",
+        "service": "BIS Standard Recommendation API",
     }
 
 
 @app.post("/recommend")
 def recommend(
     request: RecommendationRequest,
-) -> Dict[str, Any]:
-    # Generate BIS recommendations without response-model validation.
-    try:
-        result = pipeline.recommend(
-            query=request.query,
-            top_k=50,
-            final_k=10,
-            related_k=5,
-        )
+):
+    # Validate manual text before running the recommendation engine.
 
-        # Return the raw JSON-compatible pipeline response.
+    query = request.query.strip()
+
+    validate_text_for_recommendation(
+        query,
+        "text",
+    )
+
+    try:
+        result = pipeline.recommend(query)
+
+        result["query"] = query
+        result["input_type"] = "text"
+        result["filename"] = None
+        result["extracted_text_length"] = len(query)
+
         return result
 
+    except HTTPException:
+        raise
+
     except Exception as exc:
-        # Convert recommendation failures into a readable HTTP error.
         raise HTTPException(
             status_code=500,
             detail=f"Recommendation failed: {exc}",
-        ) from exc
+        )
 
 
 @app.post("/recommend-document")
 async def recommend_document(
     file: UploadFile = File(...),
-) -> Dict[str, Any]:
-    # Extract text from PDF, DOCX or TXT input and run the same recommendation engine.
-    try:
-        max_file_size = 10 * 1024 * 1024
+):
+    # Validate, extract, and classify an uploaded document before recommendation.
 
-        # Read the uploaded file.
-        content = await file.read()
-
-        # Reject files larger than the prototype upload limit.
-        if len(content) > max_file_size:
-            raise HTTPException(
-                status_code=413,
-                detail="File size must not exceed 10 MB.",
-            )
-
-        filename = file.filename or ""
-        suffix = Path(filename).suffix.lower()
-
-        extracted_text = ""
-
-        # Extract PDF text.
-        if suffix == ".pdf":
-            from io import BytesIO
-
-            from pypdf import PdfReader
-
-            reader = PdfReader(
-                BytesIO(content)
-            )
-
-            pages = []
-
-            for page in reader.pages:
-                text = page.extract_text() or ""
-                pages.append(text)
-
-            extracted_text = "\n".join(
-                pages
-            )
-
-        # Extract DOCX text.
-        elif suffix == ".docx":
-            from io import BytesIO
-
-            from docx import Document
-
-            document = Document(
-                BytesIO(content)
-            )
-
-            paragraphs = [
-                paragraph.text
-                for paragraph in document.paragraphs
-                if paragraph.text.strip()
-            ]
-
-            extracted_text = "\n".join(
-                paragraphs
-            )
-
-        # Extract plain text.
-        elif suffix == ".txt":
-            extracted_text = content.decode(
-                "utf-8",
-                errors="ignore",
-            )
-
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Only PDF, DOCX and TXT files are supported.",
-            )
-
-        # Remove excess whitespace from extracted content.
-        extracted_text = " ".join(
-            extracted_text.split()
+    if not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="No file was selected.",
         )
 
-        # Limit the amount of document text sent to the model.
+    filename = Path(file.filename).name
+    extension = Path(filename).suffix.lower()
+
+    # Reject unsupported formats immediately.
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Please upload PDF, DOCX, or TXT.",
+        )
+
+    # Read the upload.
+    file_content = await file.read()
+
+    # Reject empty files.
+    if not file_content:
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is empty.",
+        )
+
+    # Enforce the 10 MB limit.
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="File is too large. Maximum allowed size is 10 MB.",
+        )
+
+    temp_path = None
+
+    try:
+        # Create a temporary file for document extraction.
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=extension,
+        ) as temp_file:
+
+            temp_file.write(file_content)
+
+            temp_path = Path(temp_file.name)
+
+        # Extract the document text.
+        extracted_text = extract_text_from_file(
+            str(temp_path),
+            filename,
+        )
+
+        # Reject documents with no readable text.
+        if not extracted_text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No readable text could be extracted from this document. "
+                    "Please upload a text-based PDF, DOCX, or TXT procurement document."
+                ),
+            )
+
+        # Keep a bounded amount of text for the AI pipeline.
         extracted_text = extracted_text[:20000]
 
-        if len(extracted_text) < 3:
-            raise HTTPException(
-                status_code=400,
-                detail="Could not extract enough text from the uploaded file.",
-            )
-
-        # Run the normal recommendation pipeline.
-        result = pipeline.recommend(
-            query=extracted_text,
-            top_k=50,
-            final_k=10,
-            related_k=5,
+        # IMPORTANT:
+        # Uploaded documents are validated as "document", not "text".
+        validate_text_for_recommendation(
+            extracted_text,
+            "document",
         )
 
-        # Add document metadata expected by the frontend.
+        # Only valid BIS procurement documents reach the recommendation engine.
+        result = pipeline.recommend(
+            extracted_text,
+        )
+
+        result["query"] = extracted_text
         result["input_type"] = "document"
         result["filename"] = filename
-        result["extracted_text_length"] = len(
-            extracted_text
-        )
+        result["extracted_text_length"] = len(extracted_text)
 
         return result
 
     except HTTPException:
-        # Preserve intentional HTTP errors.
         raise
 
     except Exception as exc:
-        # Return a readable document-processing error.
         raise HTTPException(
             status_code=500,
             detail=f"Document recommendation failed: {exc}",
-        ) from exc
+        )
+
+    finally:
+        # Remove the temporary file after processing.
+        if temp_path and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass

@@ -1,7 +1,9 @@
-// Connect the Syncronal frontend to the FastAPI text and document recommendation APIs.
+// Connect the Syncronal frontend to FastAPI with proper text and document validation errors.
 
 const API_URL = "http://127.0.0.1:8000";
 
+
+// ---------- DOM ELEMENTS ----------
 
 const textTab = document.getElementById("textTab");
 const uploadTab = document.getElementById("uploadTab");
@@ -70,10 +72,10 @@ const resultSource =
 let selectedDocument = null;
 
 
-/* ---------- SECURITY ---------- */
+// ---------- SECURITY ----------
 
 function escapeHTML(value) {
-    // Safely escape backend data before inserting it into the webpage.
+    // Safely escape values before inserting them into the page.
     return String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -84,9 +86,8 @@ function escapeHTML(value) {
 
 
 function safeURL(url) {
-    // Allow only HTTPS links hosted on the official BIS standards domain.
+    // Allow only official BIS HTTPS URLs.
     try {
-
         if (!url) {
             return "#";
         }
@@ -102,26 +103,96 @@ function safeURL(url) {
 
         return "#";
 
-    } catch (error) {
+    } catch {
         return "#";
     }
 }
 
 
-/* ---------- HELPERS ---------- */
+// ---------- API ERROR ----------
+
+async function getApiErrorMessage(
+    response,
+    fallbackMessage,
+) {
+    // Extract the actual FastAPI error message returned by the backend.
+    try {
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (
+            contentType.includes(
+                "application/json"
+            )
+        ) {
+            const data =
+                await response.json();
+
+            if (
+                typeof data.detail ===
+                "string"
+            ) {
+                return data.detail;
+            }
+
+            if (
+                Array.isArray(data.detail)
+            ) {
+                const messages =
+                    data.detail
+                        .map(
+                            (item) =>
+                                item?.msg
+                        )
+                        .filter(Boolean);
+
+                if (
+                    messages.length > 0
+                ) {
+                    return messages.join(
+                        " "
+                    );
+                }
+            }
+        }
+
+        const text =
+            await response.text();
+
+        if (text.trim()) {
+            return text.trim();
+        }
+
+    } catch {
+        // Use the fallback when the response cannot be parsed.
+    }
+
+    return fallbackMessage;
+}
+
+
+// ---------- HELPERS ----------
 
 function formatScore(score) {
     // Convert a model score into a readable percentage.
-    const numericScore = Number(score);
+    const numericScore =
+        Number(score);
 
-    if (!Number.isFinite(numericScore)) {
+    if (
+        !Number.isFinite(
+            numericScore
+        )
+    ) {
         return "0%";
     }
 
     const percentage =
         Math.max(
             0,
-            Math.min(100, numericScore * 100)
+            Math.min(
+                100,
+                numericScore * 100
+            )
         );
 
     return `${percentage.toFixed(1)}%`;
@@ -129,83 +200,72 @@ function formatScore(score) {
 
 
 function formatFileSize(bytes) {
-    // Convert bytes into a readable file size.
+    // Convert file size into KB or MB.
     if (bytes < 1024) {
         return `${bytes} B`;
     }
 
-    if (bytes < 1024 * 1024) {
-        return `${(bytes / 1024).toFixed(1)} KB`;
+    if (
+        bytes <
+        1024 * 1024
+    ) {
+        return `${(
+            bytes / 1024
+        ).toFixed(1)} KB`;
     }
 
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(
+        bytes /
+        (1024 * 1024)
+    ).toFixed(1)} MB`;
 }
 
 
-/* ---------- TABS ---------- */
+// ---------- ERROR UI ----------
 
-function showTextPanel() {
-    // Display manual input mode and hide document upload mode.
-    textTab.classList.add("active");
-    uploadTab.classList.remove("active");
-
-    textInputPanel.classList.remove("hidden");
-    uploadPanel.classList.add("hidden");
+function clearError() {
+    // Hide any previous error message.
+    errorSection.classList.add(
+        "hidden"
+    );
 }
 
 
-function showUploadPanel() {
-    // Display document upload mode and hide manual input mode.
-    uploadTab.classList.add("active");
-    textTab.classList.remove("active");
+function showError(message) {
+    // Display the actual validation/API error to the user.
+    hideLoading();
 
-    uploadPanel.classList.remove("hidden");
-    textInputPanel.classList.add("hidden");
-}
+    errorMessage.textContent =
+        message ||
+        "Something went wrong. Please try again.";
 
+    errorSection.classList.remove(
+        "hidden"
+    );
 
-textTab.addEventListener(
-    "click",
-    showTextPanel
-);
+    resultsSection.classList.add(
+        "hidden"
+    );
 
-
-uploadTab.addEventListener(
-    "click",
-    showUploadPanel
-);
-
-
-/* ---------- EXAMPLES ---------- */
-
-document
-    .querySelectorAll(".example-button")
-    .forEach((button) => {
-
-        // Put a predefined procurement requirement into the text box.
-        button.addEventListener(
-            "click",
-            () => {
-
-                queryInput.value =
-                    button.dataset.query;
-
-                showTextPanel();
-
-                queryInput.focus();
-            }
-        );
-
+    errorSection.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
     });
+}
 
 
-/* ---------- STATUS ---------- */
+// ---------- LOADING UI ----------
 
-function setLoading(title, message) {
-    // Show the processing state while Syncronal analyzes the input.
-    statusTitle.textContent = title;
+function setLoading(
+    title,
+    message,
+) {
+    // Show the analysis state while the backend is processing.
+    statusTitle.textContent =
+        title;
 
-    statusMessage.textContent = message;
+    statusMessage.textContent =
+        message;
 
     statusSection.classList.remove(
         "hidden"
@@ -222,35 +282,96 @@ function setLoading(title, message) {
 
 
 function hideLoading() {
-    // Hide the processing state after analysis is complete.
+    // Hide the analysis state.
     statusSection.classList.add(
         "hidden"
     );
 }
 
 
-function showError(message) {
-    // Show a user-readable validation or API error.
-    hideLoading();
+// ---------- TABS ----------
 
-    errorMessage.textContent =
-        message ||
-        "An unexpected error occurred.";
+function showTextPanel() {
+    // Switch to manual requirement input.
+    textTab.classList.add(
+        "active"
+    );
 
-    errorSection.classList.remove(
+    uploadTab.classList.remove(
+        "active"
+    );
+
+    textInputPanel.classList.remove(
         "hidden"
     );
 
-    resultsSection.classList.add(
+    uploadPanel.classList.add(
         "hidden"
     );
 }
 
 
-/* ---------- DETAILS ---------- */
+function showUploadPanel() {
+    // Switch to document upload mode.
+    uploadTab.classList.add(
+        "active"
+    );
 
-function createDetailRow(label, value) {
-    // Create one metadata row for a BIS recommendation.
+    textTab.classList.remove(
+        "active"
+    );
+
+    uploadPanel.classList.remove(
+        "hidden"
+    );
+
+    textInputPanel.classList.add(
+        "hidden"
+    );
+}
+
+
+textTab.addEventListener(
+    "click",
+    showTextPanel
+);
+
+uploadTab.addEventListener(
+    "click",
+    showUploadPanel
+);
+
+
+// ---------- EXAMPLE BUTTONS ----------
+
+document
+    .querySelectorAll(
+        ".example-button"
+    )
+    .forEach((button) => {
+        // Fill the requirement box from an example button.
+        button.addEventListener(
+            "click",
+            () => {
+                queryInput.value =
+                    button.dataset.query;
+
+                showTextPanel();
+                clearError();
+
+                queryInput.focus();
+            }
+        );
+    });
+
+
+// ---------- DETAILS ----------
+
+function createDetailRow(
+    label,
+    value,
+) {
+    // Create one recommendation metadata row.
     return `
         <div class="detail-row">
 
@@ -260,7 +381,8 @@ function createDetailRow(label, value) {
 
             <span class="detail-value">
                 ${escapeHTML(
-                    value || "Not Available"
+                    value ||
+                    "Not Available"
                 )}
             </span>
 
@@ -269,16 +391,19 @@ function createDetailRow(label, value) {
 }
 
 
-/* ---------- REFERRED / RELATED ---------- */
+// ---------- RELATED STANDARDS ----------
 
-function createRelatedStandards(relatedStandards) {
-    // Render BIS referral relationships while keeping them separate from recommendations.
-
+function createRelatedStandards(
+    relatedStandards,
+) {
+    // Render referred and related BIS standards.
     if (
-        !Array.isArray(relatedStandards) ||
-        relatedStandards.length === 0
+        !Array.isArray(
+            relatedStandards
+        ) ||
+        relatedStandards.length ===
+            0
     ) {
-
         return `
             <div class="related-section">
 
@@ -294,7 +419,6 @@ function createRelatedStandards(relatedStandards) {
         `;
     }
 
-
     const items =
         relatedStandards
             .map((related) => {
@@ -305,7 +429,7 @@ function createRelatedStandards(relatedStandards) {
                     "Relationship unavailable";
 
 
-                let relationshipLabel =
+                let label =
                     relationship;
 
 
@@ -313,16 +437,16 @@ function createRelatedStandards(relatedStandards) {
                     relationship ===
                     "REFERRED_IN_STANDARD"
                 ) {
-
-                    relationshipLabel =
+                    label =
                         "Referred In";
+                }
 
-                } else if (
+
+                if (
                     relationship ===
                     "REFERRED_BY_STANDARD"
                 ) {
-
-                    relationshipLabel =
+                    label =
                         "Referred By";
                 }
 
@@ -354,7 +478,6 @@ function createRelatedStandards(relatedStandards) {
 
                         </div>
 
-
                         <div class="related-meta">
 
                             <span class="related-status">
@@ -365,9 +488,7 @@ function createRelatedStandards(relatedStandards) {
                             </span>
 
                             <span class="relationship-type">
-                                ${escapeHTML(
-                                    relationshipLabel
-                                )}
+                                ${escapeHTML(label)}
                             </span>
 
                         </div>
@@ -394,17 +515,14 @@ function createRelatedStandards(relatedStandards) {
 }
 
 
-/* ---------- RECOMMENDATION CARD ---------- */
+// ---------- RECOMMENDATION CARD ----------
 
-function createRecommendationCard(recommendation) {
-    // Build a complete recommendation card from the FastAPI response.
+function createRecommendationCard(
+    recommendation,
+) {
+    // Build one complete BIS recommendation card.
     const detailsId =
         `details-${recommendation.rank}`;
-
-
-    const relatedStandards =
-        recommendation.related_standards || [];
-
 
     return `
         <article class="recommendation-card">
@@ -414,7 +532,6 @@ function createRecommendationCard(recommendation) {
                 <div class="rank-badge">
                     #${recommendation.rank}
                 </div>
-
 
                 <div class="standard-heading">
 
@@ -431,7 +548,6 @@ function createRecommendationCard(recommendation) {
                     </h3>
 
                 </div>
-
 
                 <div class="match-score">
 
@@ -519,7 +635,6 @@ function createRecommendationCard(recommendation) {
                 >
                     Official BIS
                 </a>
-
 
                 <button
                     type="button"
@@ -620,7 +735,8 @@ function createRecommendationCard(recommendation) {
 
 
                 ${createRelatedStandards(
-                    relatedStandards
+                    recommendation.related_standards ||
+                    []
                 )}
 
             </div>
@@ -630,24 +746,23 @@ function createRecommendationCard(recommendation) {
 }
 
 
-/* ---------- RENDER RESULTS ---------- */
+// ---------- RENDER RESULTS ----------
 
 function renderResults(data) {
-    // Render the recommendation results returned by either API endpoint.
-
+    // Render successful BIS recommendation results.
     candidateCount.textContent =
-        data.candidates_retrieved ?? 0;
-
+        data.candidates_retrieved ??
+        0;
 
     recommendationCount.textContent =
-        data.recommendation_count ?? 0;
+        data.recommendation_count ??
+        0;
 
 
     if (
         data.input_type ===
         "document"
     ) {
-
         resultSource.textContent =
             `Analyzed document: ${
                 data.filename ||
@@ -658,7 +773,6 @@ function renderResults(data) {
             } characters extracted`;
 
     } else {
-
         resultSource.textContent =
             `Analyzed requirement: "${
                 data.query
@@ -670,14 +784,15 @@ function renderResults(data) {
         !Array.isArray(
             data.recommendations
         ) ||
-        data.recommendations.length === 0
+        data.recommendations.length ===
+            0
     ) {
-
-        resultsContainer.innerHTML = `
-            <div class="empty-results">
-                No suitable BIS standards were found.
-            </div>
-        `;
+        resultsContainer.innerHTML =
+            `
+                <div class="empty-results">
+                    No suitable BIS standards were found.
+                </div>
+            `;
 
         resultsSection.classList.remove(
             "hidden"
@@ -705,18 +820,14 @@ function renderResults(data) {
             ".details-button"
         )
         .forEach((button) => {
-
-            // Toggle complete metadata and referred standards for each card.
+            // Toggle complete recommendation details.
             button.addEventListener(
                 "click",
                 () => {
 
-                    const targetId =
-                        button.dataset.target;
-
                     const target =
                         document.getElementById(
-                            targetId
+                            button.dataset.target
                         );
 
                     if (!target) {
@@ -741,22 +852,22 @@ function renderResults(data) {
                             : "View all details";
                 }
             );
-
         });
 }
 
 
-/* ---------- TEXT RECOMMENDATION ---------- */
+// ---------- TEXT RECOMMENDATION ----------
 
 async function recommendFromText() {
-    // Send the manually entered procurement requirement to FastAPI.
-
+    // Send manual procurement text to FastAPI.
     const query =
         queryInput.value.trim();
 
 
-    if (query.length < 3) {
+    clearError();
 
+
+    if (query.length < 3) {
         showError(
             "Please enter at least 3 characters."
         );
@@ -767,7 +878,7 @@ async function recommendFromText() {
 
     setLoading(
         "Analyzing requirement...",
-        "Finding relevant BIS standards."
+        "Checking the requirement and finding relevant BIS standards."
     );
 
 
@@ -784,27 +895,33 @@ async function recommendFromText() {
 
                     headers: {
                         "Content-Type":
-                            "application/json"
+                            "application/json",
                     },
 
-                    body: JSON.stringify({
-                        query: query
-                    })
+                    body:
+                        JSON.stringify({
+                            query: query,
+                        }),
                 }
             );
 
 
+        if (!response.ok) {
+            // Show the real backend validation error.
+            const message =
+                await getApiErrorMessage(
+                    response,
+                    "Recommendation request failed."
+                );
+
+            showError(message);
+
+            return;
+        }
+
+
         const data =
             await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.detail ||
-                "Recommendation request failed."
-            );
-        }
 
 
         hideLoading();
@@ -814,24 +931,26 @@ async function recommendFromText() {
     } catch (error) {
 
         showError(
-            error.message ||
+            error?.message ||
             "Unable to connect to the backend."
         );
 
     } finally {
 
-        searchButton.disabled = false;
+        searchButton.disabled =
+            false;
     }
 }
 
 
-/* ---------- DOCUMENT RECOMMENDATION ---------- */
+// ---------- DOCUMENT RECOMMENDATION ----------
 
 async function recommendFromDocument() {
-    // Upload the selected file to FastAPI and request BIS recommendations.
+    // Upload a document and show the backend validation result.
+    clearError();
+
 
     if (!selectedDocument) {
-
         showError(
             "Please select a PDF, DOCX or TXT file."
         );
@@ -851,12 +970,11 @@ async function recommendFromDocument() {
         ![
             ".pdf",
             ".docx",
-            ".txt"
+            ".txt",
         ].includes(extension)
     ) {
-
         showError(
-            "Unsupported file type. Upload PDF, DOCX or TXT."
+            "Unsupported file type. Please upload PDF, DOCX or TXT."
         );
 
         return;
@@ -867,9 +985,8 @@ async function recommendFromDocument() {
         selectedDocument.size >
         10 * 1024 * 1024
     ) {
-
         showError(
-            "File is too large. Maximum size is 10 MB."
+            "File is too large. Maximum allowed size is 10 MB."
         );
 
         return;
@@ -877,12 +994,13 @@ async function recommendFromDocument() {
 
 
     setLoading(
-        "Analyzing document...",
-        "Extracting requirements and finding relevant BIS standards."
+        "Checking document...",
+        "Extracting the document and validating whether it is a BIS procurement requirement."
     );
 
 
-    uploadButton.disabled = true;
+    uploadButton.disabled =
+        true;
 
 
     try {
@@ -902,23 +1020,27 @@ async function recommendFromDocument() {
                 `${API_URL}/recommend-document`,
                 {
                     method: "POST",
-
-                    body: formData
+                    body: formData,
                 }
             );
 
 
+        if (!response.ok) {
+            // Show the actual document validation error from FastAPI.
+            const message =
+                await getApiErrorMessage(
+                    response,
+                    "Document validation failed."
+                );
+
+            showError(message);
+
+            return;
+        }
+
+
         const data =
             await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.detail ||
-                "Document analysis failed."
-            );
-        }
 
 
         hideLoading();
@@ -928,18 +1050,19 @@ async function recommendFromDocument() {
     } catch (error) {
 
         showError(
-            error.message ||
+            error?.message ||
             "Unable to analyze the document."
         );
 
     } finally {
 
-        uploadButton.disabled = false;
+        uploadButton.disabled =
+            false;
     }
 }
 
 
-/* ---------- BUTTON EVENTS ---------- */
+// ---------- BUTTON EVENTS ----------
 
 searchButton.addEventListener(
     "click",
@@ -953,17 +1076,17 @@ uploadButton.addEventListener(
 );
 
 
-/* ---------- KEYBOARD ---------- */
+// ---------- KEYBOARD ----------
 
 queryInput.addEventListener(
     "keydown",
     (event) => {
-
-        // Allow Ctrl+Enter to submit the procurement requirement.
+        // Allow Ctrl+Enter to submit manual text.
         if (
             event.key === "Enter" &&
             event.ctrlKey
         ) {
+            event.preventDefault();
 
             recommendFromText();
         }
@@ -971,22 +1094,18 @@ queryInput.addEventListener(
 );
 
 
-/* ---------- FILE SELECTION ---------- */
+// ---------- FILE SELECTION ----------
 
 documentInput.addEventListener(
     "change",
     () => {
-
-        // Store the selected document and update the upload interface.
-
+        // Validate and store a newly selected file.
         const file =
             documentInput.files?.[0];
-
 
         if (!file) {
             return;
         }
-
 
         setSelectedDocument(file);
     }
@@ -994,8 +1113,7 @@ documentInput.addEventListener(
 
 
 function setSelectedDocument(file) {
-    // Validate and store a selected or dropped document.
-
+    // Validate file extension and size before enabling upload.
     const extension =
         `.${file.name
             .split(".")
@@ -1003,16 +1121,33 @@ function setSelectedDocument(file) {
             .toLowerCase()}`;
 
 
-    if (
-        ![
+    const allowedExtensions =
+        [
             ".pdf",
             ".docx",
-            ".txt"
-        ].includes(extension)
+            ".txt",
+        ];
+
+
+    if (
+        !allowedExtensions.includes(
+            extension
+        )
     ) {
 
+        selectedDocument = null;
+
+        documentInput.value = "";
+
+        selectedFile.classList.add(
+            "hidden"
+        );
+
+        uploadButton.disabled =
+            true;
+
         showError(
-            "Unsupported file type. Upload PDF, DOCX or TXT."
+            "Unsupported file type. Please upload PDF, DOCX or TXT."
         );
 
         return;
@@ -1024,15 +1159,27 @@ function setSelectedDocument(file) {
         10 * 1024 * 1024
     ) {
 
+        selectedDocument = null;
+
+        documentInput.value = "";
+
+        selectedFile.classList.add(
+            "hidden"
+        );
+
+        uploadButton.disabled =
+            true;
+
         showError(
-            "File is too large. Maximum size is 10 MB."
+            "File is too large. Maximum allowed size is 10 MB."
         );
 
         return;
     }
 
 
-    selectedDocument = file;
+    selectedDocument =
+        file;
 
 
     selectedFileName.textContent =
@@ -1046,44 +1193,44 @@ function setSelectedDocument(file) {
     );
 
 
-    uploadButton.disabled = false;
+    uploadButton.disabled =
+        false;
 
 
-    errorSection.classList.add(
-        "hidden"
-    );
+    clearError();
 }
 
 
-/* ---------- REMOVE FILE ---------- */
+// ---------- REMOVE FILE ----------
 
 removeFileButton.addEventListener(
     "click",
     () => {
+        // Remove the selected file and reset the upload UI.
+        selectedDocument =
+            null;
 
-        // Remove the selected document and reset the upload controls.
-
-        selectedDocument = null;
-
-        documentInput.value = "";
+        documentInput.value =
+            "";
 
         selectedFile.classList.add(
             "hidden"
         );
 
-        uploadButton.disabled = true;
+        uploadButton.disabled =
+            true;
+
+        clearError();
     }
 );
 
 
-/* ---------- DRAG AND DROP ---------- */
+// ---------- DRAG AND DROP ----------
 
 dropZone.addEventListener(
     "dragover",
     (event) => {
-
-        // Allow a document to be dragged over the upload area.
-
+        // Allow files to be dragged over the upload area.
         event.preventDefault();
 
         dropZone.classList.add(
@@ -1096,9 +1243,7 @@ dropZone.addEventListener(
 dropZone.addEventListener(
     "dragleave",
     () => {
-
-        // Remove the drag-over visual effect.
-
+        // Remove the drag-over state.
         dropZone.classList.remove(
             "drag-over"
         );
@@ -1109,9 +1254,7 @@ dropZone.addEventListener(
 dropZone.addEventListener(
     "drop",
     (event) => {
-
-        // Accept a dropped document and pass it through validation.
-
+        // Validate and store the dropped file.
         event.preventDefault();
 
         dropZone.classList.remove(
