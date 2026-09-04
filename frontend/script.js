@@ -1,6 +1,7 @@
 // Connect the Syncronal frontend to FastAPI with proper text and document validation errors.
 
-const API_URL = "http://127.0.0.1:8000";
+// Use the public Azure FastAPI backend instead of the local development server.
+const API_URL = "https://sih26108-bis-backend-axf3bfc9a8dad2cr.centralindia-01.azurewebsites.net";
 
 
 // ---------- DOM ELEMENTS ----------
