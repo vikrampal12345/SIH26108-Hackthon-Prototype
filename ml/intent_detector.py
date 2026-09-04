@@ -1,273 +1,140 @@
-# Strictly validate manual requirements and uploaded documents before BIS recommendation.
-
+# Validates whether the supplied text is a BIS procurement-related request.
 import re
 
 
-# Words that indicate procurement or technical requirement context.
-PROCUREMENT_TERMS = {
-    "procure",
-    "procurement",
-    "purchase",
-    "purchasing",
-    "supply",
-    "supplier",
-    "tender",
-    "bid",
-    "quotation",
-    "contract",
-    "requirement",
-    "requirements",
-    "specification",
-    "specifications",
-    "technical specification",
-    "boq",
-    "bill of quantities",
-    "work order",
-    "material requirement",
-}
-
-
-# Terms that strongly indicate BIS or Indian Standards context.
-BIS_TERMS = {
-    "bis",
-    "bureau of indian standards",
-    "indian standard",
-    "indian standards",
-    "is standard",
-    "is code",
-    "is specification",
-    "is 269",
-    "is 455",
-    "is 1489",
-    "is 432",
-}
-
-
-# Product/material concepts that exist in the BIS knowledge base.
 PRODUCT_TERMS = {
-    "cement",
-    "concrete",
-    "steel",
-    "reinforcement bar",
-    "reinforcement bars",
-    "reinforcement",
-    "rebar",
-    "wire",
-    "cable",
-    "cables",
-    "electrical cable",
-    "pipe",
-    "pipes",
-    "pvc",
-    "pvc-u",
-    "tile",
-    "tiles",
-    "helmet",
-    "helmets",
-    "safety helmet",
-    "gloves",
-    "welding electrode",
-    "welding electrodes",
-    "extinguisher",
-    "extinguishers",
-    "water",
-    "drinking water",
-    "packaged drinking water",
-    "pressure vessel",
-    "pressure vessels",
-    "led",
-    "lighting",
-    "construction material",
-    "construction materials",
-    "building material",
-    "building materials",
-    "masonry",
-    "brick",
-    "bricks",
-    "sand",
-    "aggregate",
-    "asphalt",
-    "bitumen",
+    "cement", "concrete", "steel", "iron", "rebar", "reinforcement",
+    "brick", "block", "tile", "pipe", "pipes", "pvc", "hdpe",
+    "cable", "wire", "electrical", "helmet", "gloves", "extinguisher",
+    "water", "drinking water", "welding", "electrode", "sheet",
+    "stainless steel", "road", "pavement", "lighting", "led",
+    "pressure vessel", "irrigation", "construction material",
+    "aggregate", "sand", "bitumen", "asphalt", "glass", "ceramic"
 }
 
+PROCUREMENT_TERMS = {
+    "procurement", "purchase", "purchasing", "tender", "tenders",
+    "specification", "specifications", "requirement", "requirements",
+    "supply", "supplier", "material", "materials", "construction",
+    "project", "applicable", "standard", "standards", "compliance",
+    "quality", "testing", "test method", "use", "used", "required",
+    "selection", "select", "applicable standard"
+}
 
-# Terms that commonly identify resumes/CVs.
+BIS_TERMS = {
+    "bis", "bureau of indian standards", "indian standard",
+    "indian standards", "is standard", "is code"
+}
+
 RESUME_TERMS = {
-    "resume",
-    "curriculum vitae",
-    "curriculum",
-    "vitae",
-    "cv",
-    "work experience",
-    "professional experience",
-    "employment history",
-    "education",
-    "educational qualification",
-    "qualifications",
-    "skills",
-    "technical skills",
-    "soft skills",
-    "projects",
-    "project experience",
-    "certifications",
-    "certificate",
-    "career objective",
-    "objective",
-    "linkedin",
-    "github",
-    "portfolio",
-    "date of birth",
-    "dob",
-    "experience",
-    "internship",
-    "internships",
+    "resume", "curriculum vitae", "cv", "education", "experience",
+    "skills", "projects", "work experience", "employment",
+    "objective", "profile", "linkedin", "github", "achievements"
 }
 
-
-# Terms that strongly suggest the uploaded content is unrelated.
 UNRELATED_TERMS = {
-    "recipe",
-    "movie",
-    "song",
-    "poem",
-    "novel",
-    "fiction",
-    "story",
-    "travel itinerary",
-    "medical prescription",
-    "prescription",
-    "exam question",
-    "exam paper",
-    "personal diary",
+    "movie", "song", "joke", "weather", "recipe", "cricket",
+    "football", "game", "dating", "politics", "story", "poem"
 }
 
 
-def _normalize_text(text: str) -> str:
-    # Normalize extracted text so validation is consistent.
+def _normalize(text: str) -> str:
+    """Normalize text for matching."""
     text = str(text or "").lower()
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 def _count_matches(text: str, terms: set[str]) -> int:
-    # Count distinct validation signals present in the text.
+    """Count how many relevant terms appear in the text."""
     return sum(1 for term in terms if term in text)
 
 
+def _looks_like_is_number(text: str) -> bool:
+    """Detect common Indian Standard number patterns."""
+    return bool(re.search(r"\bis\s*\d{2,6}\b", text))
+
+
 def _looks_like_resume(text: str) -> bool:
-    # Detect a resume using multiple independent resume signals.
-    resume_hits = _count_matches(text, RESUME_TERMS)
+    """Detect resume-like structure instead of procurement requirements."""
+    section_hits = _count_matches(text, RESUME_TERMS)
 
-    return resume_hits >= 2
-
-
-def detect_input_intent(
-    text: str,
-    input_type: str = "text",
-) -> tuple[bool, str]:
-    # Decide whether the supplied content can safely enter the BIS recommendation pipeline.
-
-    normalized = _normalize_text(text)
-
-    # Reject empty or unreadable content.
-    if not normalized:
-        return (
-            False,
-            "No readable text was found in the input.",
-        )
-
-    # Reject extremely short content.
-    if len(normalized) < 10:
-        return (
-            False,
-            "The input is too short to identify a BIS procurement requirement.",
-        )
-
-    # Resume detection has priority over product-word detection.
-    if _looks_like_resume(normalized):
-        return (
-            False,
-            "This document appears to be a resume or CV, not a BIS procurement requirement.",
-        )
-
-    # Reject clearly unrelated documents.
-    unrelated_hits = _count_matches(
-        normalized,
-        UNRELATED_TERMS,
+    email_found = bool(
+        re.search(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", text, re.I)
     )
+
+    phone_found = bool(
+        re.search(r"\b(?:\+91[\s-]?)?[6-9]\d{9}\b", text)
+    )
+
+    linkedin_found = "linkedin.com" in text
+    github_found = "github.com" in text
+
+    contact_hits = sum([
+        email_found,
+        phone_found,
+        linkedin_found,
+        github_found,
+    ])
+
+    # Strong resume structure: several resume sections or sections + contact data.
+    return section_hits >= 4 or (section_hits >= 2 and contact_hits >= 1)
+
+
+def validate_text_for_recommendation(
+    text: str,
+    input_type: str = "text"
+) -> tuple[bool, str]:
+    """Return whether the input is suitable for BIS recommendation."""
+    text = _normalize(text)
+
+    if not text:
+        return False, "Please enter a BIS procurement requirement."
+
+    if len(text) < 10:
+        return False, "Please provide a more detailed BIS procurement requirement."
+
+    if _looks_like_resume(text):
+        return False, (
+            "This appears to be a resume or personal profile. "
+            "Please provide a procurement requirement, product specification, "
+            "material requirement, or BIS standard query."
+        )
+
+    unrelated_hits = _count_matches(text, UNRELATED_TERMS)
 
     if unrelated_hits >= 2:
-        return (
-            False,
-            "This content does not appear to be a BIS procurement requirement.",
+        return False, (
+            "This input is not related to BIS standards or procurement."
         )
 
-    procurement_hits = _count_matches(
-        normalized,
-        PROCUREMENT_TERMS,
-    )
+    product_hits = _count_matches(text, PRODUCT_TERMS)
+    procurement_hits = _count_matches(text, PROCUREMENT_TERMS)
+    bis_hits = _count_matches(text, BIS_TERMS)
+    is_number = _looks_like_is_number(text)
 
-    bis_hits = _count_matches(
-        normalized,
-        BIS_TERMS,
-    )
+    # Explicit BIS/IS references are strong evidence of a valid query.
+    if is_number and (product_hits >= 1 or procurement_hits >= 1):
+        return True, ""
 
-    product_hits = _count_matches(
-        normalized,
-        PRODUCT_TERMS,
-    )
+    if bis_hits >= 1 and (product_hits >= 1 or procurement_hits >= 1):
+        return True, ""
 
-    # Uploaded documents use a stricter validation rule.
-    if input_type == "document":
-
-        # Product + procurement context is valid.
-        if product_hits >= 1 and procurement_hits >= 1:
-            return (
-                True,
-                "Valid BIS procurement document.",
-            )
-
-        # Product + explicit BIS context is also valid.
-        if product_hits >= 1 and bis_hits >= 1:
-            return (
-                True,
-                "Valid BIS-related procurement document.",
-            )
-
-        # Several independent BIS signals are sufficient.
-        if bis_hits >= 2:
-            return (
-                True,
-                "Valid BIS-related document.",
-            )
-
-        # Everything else is rejected.
-        return (
-            False,
-            "Uploaded document does not appear to contain a BIS procurement requirement.",
-        )
-
-    # Manual text can be shorter but still needs a recognizable product/context.
-
+    # Normal procurement query: product/material + procurement context.
     if product_hits >= 1 and procurement_hits >= 1:
-        return (
-            True,
-            "Valid BIS procurement requirement.",
-        )
+        return True, ""
 
-    if product_hits >= 1 and bis_hits >= 1:
-        return (
-            True,
-            "Valid BIS-related requirement.",
-        )
+    # Detailed technical/material queries can be valid even without
+    # the exact word "procurement".
+    if product_hits >= 2 and procurement_hits >= 1:
+        return True, ""
 
-    if bis_hits >= 1 and procurement_hits >= 1:
-        return (
-            True,
-            "Valid BIS procurement requirement.",
-        )
-
-    return (
-        False,
-        "This input does not appear to contain a BIS procurement requirement.",
+    return False, (
+        "Please provide a BIS-related procurement requirement. "
+        "Example: 'BIS standard for ordinary Portland cement used "
+        "for road construction.'"
     )
+
+# Keep the old backend function name compatible with the new validator.
+def detect_input_intent(text: str, input_type: str = "text"):
+    return validate_text_for_recommendation(text, input_type)
